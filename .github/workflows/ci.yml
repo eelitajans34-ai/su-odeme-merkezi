@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: su_dev
+          POSTGRES_PASSWORD: su_dev_local_only
+          POSTGRES_DB: su_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U su_dev"
+          --health-interval 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://su_dev:su_dev_local_only@localhost:5432/su_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: PostgreSQL istemci sürümü (pg_dump sunucudan eski olmamalı)
+        run: pg_dump --version
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npm run audit:deps
+      - name: Depoda gizli bilgi olmadığını denetle
+        run: |
+          if git ls-files | grep -E '(^|/)\.env$'; then echo ".env dosyası depoya eklenmiş" >&2; exit 1; fi

@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "Su Ödeme Merkezi",
+    "slug": "su-odeme-merkezi",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "suodeme",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "bundleIdentifier": "com.example.suodeme",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Abonelik QR kodunu taramak için kamera erişimi gerekir. Kamera yalnızca QR tarama ekranında kullanılır."
+      }
+    },
+    "android": {
+      "package": "com.example.suodeme",
+      "permissions": ["CAMERA", "POST_NOTIFICATIONS"],
+      "blockedPermissions": ["android.permission.RECORD_AUDIO", "android.permission.READ_EXTERNAL_STORAGE"]
+    },
+    "plugins": [
+      ["expo-camera", { "cameraPermission": "Abonelik QR kodunu taramak için kamera erişimi gerekir.", "recordAudioAndroid": false }],
+      "expo-secure-store",
+      "expo-notifications"
+    ],
+    "extra": {
+      "apiBaseUrl": "https://api.ornek-alan-adi.invalid"
+    }
+  }
+}

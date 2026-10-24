@@ -1,0 +1,18 @@
+{
+  "name": "su-odeme-merkezi",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Su kartı yükleme ve su faturası ödeme platformu",
+  "workspaces": ["apps/api", "apps/web"],
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "dev:api": "npm run dev -w apps/api",
+    "dev:web": "npm run dev -w apps/web",
+    "build": "npm run build -w apps/api && npm run build -w apps/web",
+    "test": "npm test -w apps/api",
+    "typecheck": "npm run typecheck -w apps/api && npm run typecheck -w apps/web",
+    "migrate": "npm run migrate -w apps/api",
+    "bootstrap-super-admin": "npm run bootstrap-super-admin -w apps/api",
+    "audit:deps": "npm audit --omit=dev --audit-level=high"
+  }
+}
