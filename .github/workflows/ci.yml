@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16
+        image: postgres:17
         env:
           POSTGRES_USER: su_dev
           POSTGRES_PASSWORD: su_dev_local_only
@@ -31,6 +31,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: PostgreSQL istemci sürümü (pg_dump sunucudan eski olmamalı)
+        run: pg_dump --version
       - run: npm ci
       - run: npm run typecheck
       - run: npm test

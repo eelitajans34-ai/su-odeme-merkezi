@@ -1,7 +1,7 @@
 # YALNIZCA YEREL GELİŞTİRME. Buradaki parola yerel geliştirme içindir; üretimde kullanılmaz.
 services:
   db:
-    image: postgres:16
+    image: postgres:17
     environment:
       POSTGRES_USER: su_dev
       POSTGRES_PASSWORD: su_dev_local_only
