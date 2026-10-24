@@ -1,0 +1,43 @@
+{
+  "name": "@su/api",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=../../.env src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node --env-file-if-exists=../../.env dist/src/server.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "migrate": "tsx --env-file-if-exists=../../.env src/cli/migrate.ts",
+    "bootstrap-super-admin": "tsx --env-file-if-exists=../../.env src/cli/bootstrap-super-admin.ts",
+    "worker": "tsx --env-file-if-exists=../../.env src/cli/worker.ts",
+    "seed:dev": "tsx --env-file-if-exists=../../.env src/cli/seed-dev.ts",
+    "record-backup": "tsx --env-file-if-exists=../../.env src/cli/record-backup.ts",
+    "migrate:prod": "node --env-file-if-exists=../../.env dist/src/cli/migrate.js",
+    "bootstrap-super-admin:prod": "node --env-file-if-exists=../../.env dist/src/cli/bootstrap-super-admin.js",
+    "worker:prod": "node --env-file-if-exists=../../.env dist/src/cli/worker.js",
+    "record-backup:prod": "node --env-file-if-exists=../../.env dist/src/cli/record-backup.js",
+    "configure-email": "tsx --env-file-if-exists=../../.env src/cli/configure-email.ts",
+    "configure-email:prod": "node --env-file-if-exists=../../.env dist/src/cli/configure-email.js"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.1.3",
+    "@fastify/cors": "^11.3.1",
+    "@fastify/helmet": "^13.2.0",
+    "@fastify/rate-limit": "^11.2.1",
+    "fastify": "^5.12.7",
+    "nodemailer": "^10.2.1",
+    "pg": "^8.23.1",
+    "pino": "^10.4.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/nodemailer": "^8.0.2",
+    "@types/pg": "^8.23.1",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}

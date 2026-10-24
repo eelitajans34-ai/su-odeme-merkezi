@@ -1,0 +1,19 @@
+# YALNIZCA YEREL GELİŞTİRME. Buradaki parola yerel geliştirme içindir; üretimde kullanılmaz.
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: su_dev
+      POSTGRES_PASSWORD: su_dev_local_only
+      POSTGRES_DB: su_dev
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - su_pg:/var/lib/postgresql/data
+      - ./docker/init-test-db.sql:/docker-entrypoint-initdb.d/10-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U su_dev"]
+      interval: 5s
+      retries: 10
+volumes:
+  su_pg:
