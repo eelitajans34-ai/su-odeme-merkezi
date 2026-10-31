@@ -4,6 +4,26 @@ Su kartı bakiye yükleme ve su faturası sorgulama/ödeme platformu: web, Andro
 
 > **Durum: Test modu / Kurulum bekleniyor.** Bu depoda gerçek bir su idaresi veya ödeme kuruluşu bağlantısı **yoktur**. Gerçek entegrasyonlar, kurumların resmî teknik dokümanı, sözleşme ve yazılı izin geldikten sonra eklenecektir. Geliştirme simülatörleri yalnızca üretim dışı ortamlarda çalışır ve gerçek para hareketi oluşturmaz. Canlı mod, yayın öncesi kontrol listesi tamamlanmadan sistem tarafından engellenir.
 
+## Şu an depoda olanlar (KolaySu NFC + su yükleme çekirdeği)
+
+```
+mevcut-site/            Canlı kolaysu.online deposuna işaret (dokunulmaz)
+apps/android/           NfcCardReader.kt, CardCompatibility.kt, NfcWriteService.kt, MainActivity.kt
+services/water-topup/   subscriptions, pricing, payments, topup-orders, card-operations, buski-adapter
+database/migrations/    0001_water_topup.sql (yalnızca yeni "water_topup" şeması)
+tests/                  nfc-simulator, payment-sandbox, topup-workflow
+docs/                   buski-integration.md, security-plan.md
+```
+
+```bash
+npm install
+npm run typecheck
+npm test
+```
+
+Gerçek ödeme, gerçek BUSKİ yüklemesi ve gerçek karta yazma kapalıdır; açılması için bkz. [docs/security-plan.md](docs/security-plan.md) ve [docs/buski-integration.md](docs/buski-integration.md).
+Aşağıdaki bölümler planlanan tam platformu anlatır; o dosyalar henüz bu depoda değildir.
+
 ## Hızlı başlangıç
 
 ```bash
