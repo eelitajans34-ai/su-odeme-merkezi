@@ -18,7 +18,17 @@ Doküman olmadan tahmine dayalı kod yazılmaz; web sayfası kazıma veya yetkis
 | `getPaymentStatus` | Webhook çift kontrolü ve belirsiz durumlar için zorunlu |
 | `refund` | Sağlayıcının iade API'si; sonuç SUBMITTED ise tamamlanma webhook veya durum sorgusuyla gelir |
 | `listTransactions` | Mutabakat için |
+| `supportedMethods` | Resmî dokümanda desteklendiği görülen yöntemler: `HOSTED_CARD`, `QR`, `NFC`. Yalnızca gerçekten uygulanan yöntem yazılır |
 | `testConnection` | Yan etkisiz bir doğrulama çağrısı |
+
+### Ödeme yöntemleri (kart, QR, NFC)
+
+`createPayment` girdisindeki `method` alanına göre:
+- `HOSTED_CARD`: `checkoutUrl` döner (sağlayıcının barındırılan ödeme sayfası).
+- `QR`: `qr.payload` (sağlayıcının belgelediği karekod içeriği, ör. TR Karekod) ve `qr.expiresAt` döner. Platform karekodu yalnızca gösterir; sonuç yine imzalı webhook ve durum sorgusuyla kesinleşir.
+- `NFC`: `nfc.sessionToken` ve `nfc.sdk` döner. Temassız kart okuma tarayıcıda yapılamaz; sağlayıcının mobil SDK'sının (ör. telefonda POS / SoftPOS) mobil uygulamaya eklenmesi ve sözleşmenin bunu kapsaması gerekir. SDK eklenmeden mobil uygulama NFC ödemesini başlatmaz ve "Kurulum bekleniyor" gösterir.
+
+Bir yöntem kullanıcıya ancak adaptör destekliyorsa **ve** yönetici Güvenli Ödeme Hizmeti → B'den o ortam için açtıysa sunulur. Simülatör üç yöntemi de yalnızca TEST ortamında taklit eder.
 
 Kurallar: anahtarlar yalnızca `ctx` üzerinden gelir, asla günlüğe yazılmaz; ağ hataları ve zaman aşımları **belirsiz** kabul edilir, başarısız değil; tutarlar kuruş (tamsayı).
 

@@ -4,6 +4,7 @@ import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { api, getToken } from './src/api';
+import { BillsScreen, QrPaymentScreen } from './src/screens/Bills';
 import { HomeScreen } from './src/screens/Home';
 import { LoginScreen } from './src/screens/Login';
 import { NotificationsScreen } from './src/screens/Notifications';
@@ -44,6 +45,8 @@ export default function App() {
               </Stack.Screen>
               <Stack.Screen name="Subscriptions" component={SubscriptionsScreen} options={{ title: 'Aboneliklerim' }} />
               <Stack.Screen name="Topup" component={TopupScreen} options={{ title: 'Kart yükle' }} />
+              <Stack.Screen name="Bills" component={BillsScreen} options={{ title: 'Fatura öde' }} />
+              <Stack.Screen name="QrPayment" component={QrPaymentScreen} options={{ title: 'QR ile ödeme' }} />
               <Stack.Screen name="Transactions" component={TransactionsScreen} options={{ title: 'İşlem geçmişi' }} />
               <Stack.Screen name="TransactionDetail" component={TransactionDetailScreen} options={{ title: 'İşlem' }} />
               <Stack.Screen name="Receipt" component={ReceiptScreen} options={{ title: 'Makbuz' }} />

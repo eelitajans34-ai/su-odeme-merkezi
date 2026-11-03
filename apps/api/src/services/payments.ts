@@ -4,6 +4,7 @@ import { publicRef } from '../lib/crypto.js';
 import { badRequest } from '../lib/errors.js';
 import { transition, type SourceType, TABLE } from './state-machine.js';
 import { activeFeeSchedule, computeFee, type FeeQuote } from './fees.js';
+import type { PaymentMethod } from '../integrations/payment/types.js';
 
 /** Sunucu tarafı ücret teklifi ve limit kontrolü. Tutarlar istemciden yalnızca "istenen yükleme tutarı" olarak alınır. */
 export async function quote(deps: Deps, type: 'TOPUP' | 'BILL_PAYMENT', amountMinor: number, userId: string): Promise<FeeQuote> {
@@ -50,16 +51,16 @@ const fmt = (m: number) => `${(m / 100).toFixed(2)} TL`;
  * Ödeme sağlayıcısında ödeme oturumu başlatır. Kaynak işlem CREATED (yükleme) veya BILL_FOUND (fatura) durumunda olmalıdır.
  * Sağlayıcıya yapılan dış çağrı, veritabanı transaction'ı dışında yapılır.
  */
-export async function startPayment(deps: Deps, type: SourceType, sourceId: string, fromStatus: 'CREATED' | 'BILL_FOUND') {
+export async function startPayment(deps: Deps, type: SourceType, sourceId: string, fromStatus: 'CREATED' | 'BILL_FOUND', method: PaymentMethod = 'HOSTED_CARD') {
   const db = deps.db;
   const runtime = await deps.integrations.paymentRuntime(db);
   if (!runtime.provider) throw badRequest('Ödeme sağlayıcısı yok.');
   const src = (await db.query(`SELECT * FROM ${TABLE[type]} WHERE id = $1`, [sourceId])).rows[0];
   const payment = (
     await db.query(
-      `INSERT INTO payment_transactions (public_ref, user_id, provider_id, environment, purpose, amount_minor, currency, status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,'INITIATED') RETURNING *`,
-      [publicRef('ODM'), src.user_id, runtime.provider.id, src.environment, type, src.total_minor, src.currency],
+      `INSERT INTO payment_transactions (public_ref, user_id, provider_id, environment, purpose, amount_minor, currency, status, payment_method)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,'INITIATED',$8) RETURNING *`,
+      [publicRef('ODM'), src.user_id, runtime.provider.id, src.environment, type, src.total_minor, src.currency, method],
     )
   ).rows[0];
   await db.query(`UPDATE ${TABLE[type]} SET payment_transaction_id = $2 WHERE id = $1`, [sourceId, payment.id]);
@@ -70,14 +71,25 @@ export async function startPayment(deps: Deps, type: SourceType, sourceId: strin
       currency: payment.currency,
       description: type === 'TOPUP' ? 'Su kartı yükleme' : 'Su faturası ödeme',
       returnUrl: `${deps.config.APP_BASE_URL}/islemler/${type === 'TOPUP' ? 'yukleme' : 'fatura'}/${sourceId}`,
+      method,
     });
+    // Adaptör istenen yöntemin çıktısını üretmediyse ödeme başlatılmış sayılmaz
+    if ((method === 'HOSTED_CARD' && !result.checkoutUrl) || (method === 'QR' && !result.qr?.payload) || (method === 'NFC' && !result.nfc?.sessionToken)) {
+      throw new Error(`Adaptör ${method} için geçerli yanıt döndürmedi`);
+    }
     return await withTransaction(db, async (c) => {
       await c.query(
-        `UPDATE payment_transactions SET status = 'PENDING', provider_payment_ref = $2, checkout_url = $3, updated_at = now() WHERE id = $1`,
-        [payment.id, result.providerPaymentRef, result.checkoutUrl],
+        `UPDATE payment_transactions SET status = 'PENDING', provider_payment_ref = $2, checkout_url = $3, qr_payload = $4, qr_expires_at = $5, updated_at = now() WHERE id = $1`,
+        [payment.id, result.providerPaymentRef, result.checkoutUrl, result.qr?.payload ?? null, result.qr?.expiresAt ?? null],
       );
       await transition(c, type, sourceId, fromStatus, 'AWAITING_PAYMENT', { actor: 'SYSTEM', reason: 'Ödeme oturumu oluşturuldu' });
-      return { checkoutUrl: result.checkoutUrl, paymentRef: payment.public_ref };
+      return {
+        method,
+        checkoutUrl: result.checkoutUrl,
+        qr: result.qr ? { payload: result.qr.payload, expiresAt: result.qr.expiresAt.toISOString() } : null,
+        nfc: result.nfc ?? null,
+        paymentRef: payment.public_ref,
+      };
     });
   } catch (err) {
     await withTransaction(db, async (c) => {

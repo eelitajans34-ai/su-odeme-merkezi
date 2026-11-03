@@ -2,7 +2,7 @@
 
 Tarih: 2026-10-24 · Ortam: Node 22, PostgreSQL (yerel), Vitest 5
 
-**Sonuç: 43/43 test geçti.** API tip denetimi ve web tip denetimi temiz, web üretim derlemesi başarılı, `npm audit --omit=dev --audit-level=high`: 0 açık.
+**Sonuç: 47/47 test geçti.** API tip denetimi ve web tip denetimi temiz, web üretim derlemesi başarılı, `npm audit --omit=dev --audit-level=high`: 0 açık.
 
 Testler gerçek PostgreSQL üzerinde çalışır (bellek içi taklit veritabanı yoktur). Dış sistemler (ödeme kuruluşu, su idaresi) yalnızca geliştirme simülatörüyle temsil edilir; bu nedenle testler **gerçek entegrasyonun çalıştığını kanıtlamaz**, platformun kurallarını (durum makinesi, yetki, idempotency, imza doğrulama, dürüst durum gösterimi) doğrular.
 
@@ -53,6 +53,10 @@ Testler gerçek PostgreSQL üzerinde çalışır (bellek içi taklit veritabanı
 | security.test.ts | entegrasyon: güvenlik ve süreçler | yayın kontrol listesi kanıtsız doğrulanamaz; otomatik maddeler gerçek durumu kontrol eder | Geçti |
 | security.test.ts | entegrasyon: güvenlik ve süreçler | yönetici rol değişikliği denetim kaydına yazılır ve hedefin oturumlarını kapatır | Geçti |
 | security.test.ts | entegrasyon: güvenlik ve süreçler | e-posta kanalı: SMTP bilgisi geri gösterilmez, deneme gönderimi gerçek sonucu bildirir | Geçti |
+| payment-methods.test.ts | Ödeme yöntemleri | yönetici açmadıysa QR/NFC sunulmaz ve ödeme başlatılmaz | Geçti |
+| payment-methods.test.ts | Ödeme yöntemleri | sağlayıcı entegrasyonu yoksa her yöntem "Kurulum bekleniyor" görünür ve açılamaz | Geçti |
+| payment-methods.test.ts | Ödeme yöntemleri | QR: karekod üretilir, "ödendi" yazmaz; ödeme ve su idaresi teyidinden sonra tamamlanır | Geçti |
+| payment-methods.test.ts | Ödeme yöntemleri | NFC: tarayıcıdan reddedilir; mobil uygulamada oturum açılır, başkası simülasyonu tetikleyemez | Geçti |
 
 ## Elle yapılan uçtan uca deneme (gerçek tarayıcı, Playwright/Chromium)
 
@@ -60,7 +64,8 @@ Kayıt → geliştirme e-posta kutusundan doğrulama → giriş → `TEST-10001`
 
 ## Denenmemiş olanlar
 
-- **Mobil uygulama** (Expo): bağımlılıklar kurulmadı, derlenmedi, cihazda/emülatörde çalıştırılmadı.
+- QR ile fatura ödemesi gerçek API ile tarayıcıda denendi: karekod gösterildi, karekod içeriği başka sekmede açılıp simülatörde onaylandı, sayfa kendiliğinden "Ödeme alındı — su idaresi tahsilat teyidi bekleniyor" durumuna geçti.
+- **Mobil uygulama** (Expo; fatura ödeme, QR ve NFC ekranları dahil): bağımlılıklar kurulmadı, derlenmedi, cihazda/emülatörde çalıştırılmadı.
 - **Dockerfile**: bu ortamda Docker servisi olmadığı için imaj derlenmedi.
 - **GitHub Actions CI**: ilk çalıştırma PR açıldığında görülecek.
 - Gerçek SMTP ile gönderim (yalnızca erişilemeyen sunucuya karşı "FAILED" sonucunun dürüst gösterimi test edildi).

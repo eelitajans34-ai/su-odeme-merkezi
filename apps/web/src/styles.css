@@ -67,3 +67,13 @@ dl.kv { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; ma
 .tabs button[aria-selected="false"] { background: transparent; color: var(--primary); }
 .total { font-size: 1.3rem; font-weight: 700; }
 @media print { header.top, nav, .no-print { display: none !important; } body { background: #fff; } .card { border: 0; } }
+.methods { border: 0; padding: 0; margin: 12px 0; display: grid; gap: 8px; }
+.methods legend { font-weight: 700; margin-bottom: 6px; }
+.method { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; font-weight: 400; }
+.method input { width: auto; margin-top: 4px; }
+.method.on { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+.method.off { cursor: not-allowed; opacity: .75; }
+.method-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.method-body .badge { align-self: flex-start; font-weight: 600; }
+.qr-pay { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.qr-pay img { background: #fff; padding: 8px; border-radius: 8px; border: 1px solid var(--border); max-width: 100%; height: auto; }

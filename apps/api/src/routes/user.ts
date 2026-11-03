@@ -9,6 +9,7 @@ import { getBillPayment, inquireBills, listBillPayments, payBills } from '../ser
 import { addCard, addSubscription, addSubscriptionFromQr, getOwnedSubscription, listCards, listSubscriptions, presentSubscription, removeSubscription } from '../services/subscriptions.js';
 import { createTopup, getTopup, listTopups, refreshPaymentStatus, topupQuote } from '../services/topups.js';
 import { quote } from '../services/payments.js';
+import { paymentMethodOptions } from '../services/payment-methods.js';
 
 type Guards = ReturnType<typeof makeGuards>;
 
@@ -109,8 +110,14 @@ export async function userRoutes(app: FastifyInstance, { deps, guards }: { deps:
   });
   app.post('/api/bill-payments/:id/pay', authed, async (req) => {
     const { id } = parse(z.object({ id: z.uuid() }), req.params);
-    const { billIds } = parse(z.object({ billIds: z.array(z.string().max(64)).min(1).max(24) }).strict(), req.body);
-    return payBills(deps, actorOf(req), id, billIds);
+    const { billIds, paymentMethod } = parse(z.object({ billIds: z.array(z.string().max(64)).min(1).max(24), paymentMethod: z.enum(['HOSTED_CARD', 'QR', 'NFC']).default('HOSTED_CARD') }).strict(), req.body);
+    return payBills(deps, actorOf(req), id, billIds, paymentMethod, req.auth!.clientType);
+  });
+  // Ödeme yöntemleri ve gerçek durumları (Kurulum bekleniyor / Test modu / yalnızca mobil)
+  app.get('/api/payment-methods', authed, async (req) => {
+    const q = parse(z.object({ kind: z.enum(['TOPUP', 'BILL_PAYMENT']), subscriptionId: z.uuid().optional() }).strict(), req.query);
+    const utilityId = q.subscriptionId ? (await getOwnedSubscription(deps, req.auth!.userId, q.subscriptionId)).utility_id : null;
+    return paymentMethodOptions(deps, db, q.kind, utilityId, req.auth!.clientType);
   });
   app.get('/api/bill-payments', authed, async (req) => listBillPayments(deps, req.auth!.userId));
   app.get('/api/bill-payments/:id', authed, async (req) => {

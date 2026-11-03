@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { hmacSha256Hex, safeEqualHex } from '../../lib/crypto.js';
-import type { PaymentProviderAdapter, ProviderContext, ProviderPaymentStatus, ProviderTxnRecord, WebhookVerification } from './types.js';
+import type { CreatePaymentInput, CreatePaymentResult, PaymentMethod, PaymentProviderAdapter, ProviderContext, ProviderPaymentStatus, ProviderTxnRecord, WebhookVerification } from './types.js';
 
 /**
  * UYGULAMA İÇİ ÖDEME SİMÜLATÖRÜ — GERÇEK PARA HAREKETİ OLUŞTURMAZ.
@@ -16,8 +16,12 @@ export class SandboxPaymentAdapter implements PaymentProviderAdapter {
   readonly supportsRefund = true;
   readonly supportsStatusQuery = true;
   readonly supportsTransactionList = true;
+  /** Simülatör üç yöntemi de taklit eder; QR ve NFC'de gerçek karekod/kart okuma yoktur. */
+  readonly supportedMethods: readonly PaymentMethod[] = ['HOSTED_CARD', 'QR', 'NFC'];
   /** Simülatör durumu bellek içidir; süreç yeniden başlarsa durum sorgusu UNKNOWN döner. */
   readonly payments = new Map<string, SimPayment>();
+  /** NFC oturum belirteci → simülatör ödeme referansı */
+  readonly nfcSessions = new Map<string, string>();
   readonly refunds = new Map<string, { providerPaymentRef: string; amountMinor: number; status: 'SUBMITTED' | 'COMPLETED' }>();
 
   async testConnection(ctx: ProviderContext) {
@@ -26,7 +30,7 @@ export class SandboxPaymentAdapter implements PaymentProviderAdapter {
     return { ok: true, code: 'SIMULATOR_OK', message: 'Simülatör erişilebilir (TEST — gerçek sağlayıcı değildir).' };
   }
 
-  async createPayment(ctx: ProviderContext, input: { orderRef: string; amountMinor: number; currency: string }) {
+  async createPayment(ctx: ProviderContext, input: CreatePaymentInput): Promise<CreatePaymentResult> {
     const providerPaymentRef = `SIM-${randomUUID()}`;
     this.payments.set(providerPaymentRef, {
       providerPaymentRef,
@@ -35,7 +39,17 @@ export class SandboxPaymentAdapter implements PaymentProviderAdapter {
       currency: input.currency,
       status: 'PENDING',
     });
-    return { providerPaymentRef, checkoutUrl: `${ctx.callbackBaseUrl}/api/sandbox/checkout/${encodeURIComponent(providerPaymentRef)}` };
+    const pageUrl = `${ctx.callbackBaseUrl}/api/sandbox/checkout/${encodeURIComponent(providerPaymentRef)}`;
+    if (input.method === 'QR') {
+      // TEST karekodu: okutulunca simülatör ödeme sayfasını açar. Gerçek sağlayıcıda içerik sağlayıcının belgelediği biçimdedir.
+      return { providerPaymentRef, checkoutUrl: null, qr: { payload: `${pageUrl}?yontem=qr`, expiresAt: new Date(Date.now() + 10 * 60_000) } };
+    }
+    if (input.method === 'NFC') {
+      const sessionToken = `SIMNFC-${randomUUID()}`;
+      this.nfcSessions.set(sessionToken, providerPaymentRef);
+      return { providerPaymentRef, checkoutUrl: null, nfc: { sessionToken, sdk: 'SANDBOX' } };
+    }
+    return { providerPaymentRef, checkoutUrl: pageUrl };
   }
 
   /** Simülatör ödeme sayfasındaki karar; imzalı webhook gövdesini döndürür. */

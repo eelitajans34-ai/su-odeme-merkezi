@@ -56,6 +56,19 @@ export async function sandboxRoutes(app: FastifyInstance, { deps, guards }: { de
     return reply.redirect(`${deps.config.APP_BASE_URL}/islemler/${t?.kind ?? 'yukleme'}/${t?.id ?? ''}`, 303);
   });
 
+  // TEST: temassız (NFC) kart okumanın simülasyonu. Gerçek kart okunmaz; gerçek sistemde bu adım sağlayıcının mobil SDK'sındadır.
+  app.post('/api/sandbox/nfc/:sessionToken/tap', { preHandler: guards.requireAuth() }, async (req) => {
+    const { sessionToken } = parse(z.object({ sessionToken: z.string().max(80) }), req.params);
+    const { outcome } = parse(z.object({ outcome: z.enum(['SUCCEEDED', 'FAILED']) }).strict(), req.body);
+    const ref = sim.nfcSessions.get(sessionToken);
+    if (!ref) throw notFound();
+    const owner = (await deps.db.query(`SELECT user_id FROM payment_transactions WHERE provider_payment_ref = $1 AND payment_method = 'NFC'`, [ref])).rows[0];
+    if (!owner || owner.user_id !== req.auth!.userId) throw notFound();
+    const { rt, providerCode } = await ctxFor(ref);
+    const ev = sim.simulateOutcome(rt.ctx, ref, outcome);
+    return handlePaymentWebhook(deps, providerCode, ev.body, ev.headers);
+  });
+
   // Simülatörde iadenin sağlayıcı tarafından tamamlandığını bildiren imzalı webhook'u tetikler (yetkili personel)
   app.post('/api/sandbox/refunds/:providerRefundRef/complete', { preHandler: guards.requirePermission('refunds.approve') }, async (req) => {
     const { providerRefundRef } = parse(z.object({ providerRefundRef: z.string().max(80) }), req.params);

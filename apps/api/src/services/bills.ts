@@ -6,6 +6,8 @@ import { maskTail } from '../lib/mask.js';
 import { quote, startPayment } from './payments.js';
 import { lockTxn, transition, USER_STATUS_TEXT } from './state-machine.js';
 import { getOwnedSubscription } from './subscriptions.js';
+import type { PaymentMethod } from '../integrations/payment/types.js';
+import { assertMethodAvailable, type ClientType } from './payment-methods.js';
 import type { Bill } from '../integrations/utility/types.js';
 
 const INQUIRY_TTL_MS = 15 * 60_000;
@@ -61,7 +63,7 @@ export async function inquireBills(deps: Deps, actor: Actor, input: { subscripti
 }
 
 /** 4-5. adım: seçilen faturalar için ödeme. Tutar istemciden alınmaz; sorgu anlık görüntüsünden hesaplanır. */
-export async function payBills(deps: Deps, actor: Actor, txnId: string, billIds: string[]) {
+export async function payBills(deps: Deps, actor: Actor, txnId: string, billIds: string[], method: PaymentMethod = 'HOSTED_CARD', clientType: ClientType = 'WEB') {
   const db = deps.db;
   if (!Array.isArray(billIds) || billIds.length === 0) throw badRequest('En az bir fatura seçin.');
   const prepared = await withTransaction(db, async (c) => {
@@ -82,6 +84,7 @@ export async function payBills(deps: Deps, actor: Actor, txnId: string, billIds:
   });
   if (prepared.expired) throw conflict('Borç sorgusunun süresi doldu; lütfen yeniden sorgulayın.', 'INQUIRY_EXPIRED');
   await deps.integrations.assertReady(db, 'BILL_PAYMENT', prepared.t.utility_id);
+  await assertMethodAvailable(deps, db, 'BILL_PAYMENT', prepared.t.utility_id, method, clientType);
   const q = await quote(deps, 'BILL_PAYMENT', prepared.amount, actor.userId);
   await withTransaction(db, async (c) => {
     await c.query('UPDATE bill_inquiries SET selected_bill_ids = $2 WHERE bill_payment_transaction_id = $1', [txnId, prepared.unique]);
@@ -90,16 +93,18 @@ export async function payBills(deps: Deps, actor: Actor, txnId: string, billIds:
       [txnId, q.amountMinor, q.feeMinor, q.totalMinor, q.currency, q.feeScheduleId],
     );
   });
-  const pay = await startPayment(deps, 'BILL_PAYMENT', txnId, 'BILL_FOUND');
-  return { transaction: await getBillPayment(deps, actor.userId, txnId), checkoutUrl: pay.checkoutUrl };
+  const pay = await startPayment(deps, 'BILL_PAYMENT', txnId, 'BILL_FOUND', method);
+  return { transaction: await getBillPayment(deps, actor.userId, txnId), method: pay.method, checkoutUrl: pay.checkoutUrl, qr: pay.qr, nfc: pay.nfc };
 }
 
-const BILL_SELECT = `SELECT t.*, s.subscriber_no, u.full_name AS utility_name, i.status AS inquiry_status, i.bills, i.total_debt_minor, i.selected_bill_ids, i.expires_at AS inquiry_expires_at, r.id AS receipt_id
+const BILL_SELECT = `SELECT t.*, s.subscriber_no, u.full_name AS utility_name, i.status AS inquiry_status, i.bills, i.total_debt_minor, i.selected_bill_ids, i.expires_at AS inquiry_expires_at, r.id AS receipt_id,
+    pt.payment_method, pt.qr_payload, pt.qr_expires_at
   FROM bill_payment_transactions t
   JOIN subscriptions s ON s.id = t.subscription_id
   JOIN water_utilities u ON u.id = t.utility_id
   LEFT JOIN bill_inquiries i ON i.bill_payment_transaction_id = t.id
-  LEFT JOIN receipts r ON r.source_type = 'BILL_PAYMENT' AND r.source_id = t.id`;
+  LEFT JOIN receipts r ON r.source_type = 'BILL_PAYMENT' AND r.source_id = t.id
+  LEFT JOIN payment_transactions pt ON pt.id = t.payment_transaction_id`;
 
 export function presentBill(r: any) {
   return {
@@ -125,6 +130,9 @@ export function presentBill(r: any) {
     utilityRef: r.status === 'COMPLETED' ? r.utility_ref : null,
     errorMessage: r.error_message,
     receiptId: r.receipt_id ?? null,
+    paymentMethod: r.payment_method ?? null,
+    // Karekod yalnızca ödeme beklenirken ve süresi dolmamışsa yeniden gösterilir
+    qr: r.status === 'AWAITING_PAYMENT' && r.qr_payload && new Date(r.qr_expires_at) > new Date() ? { payload: r.qr_payload, expiresAt: r.qr_expires_at } : null,
     createdAt: r.created_at,
     completedAt: r.completed_at,
   };

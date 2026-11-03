@@ -7,6 +7,7 @@ export const notConfiguredPaymentAdapter: PaymentProviderAdapter = {
   supportsRefund: false,
   supportsStatusQuery: false,
   supportsTransactionList: false,
+  supportedMethods: [],
   async testConnection() {
     return { ok: false, code: 'NOT_CONFIGURED', message: 'Ödeme sağlayıcısı adaptörü tanımlı değil. Kurulum bekleniyor.' };
   },

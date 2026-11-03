@@ -17,6 +17,7 @@ export function HomeScreen({ navigation, onSignedOut }: { navigation: any; onSig
           <P muted>Su kartı yükleme ve fatura ödeme. Ödeme, ödeme kuruluşunun güvenli sayfasında yapılır; kart bilgileriniz bu uygulamada saklanmaz.</P>
           <Button title="Aboneliklerim" onPress={() => navigation.navigate('Subscriptions')} />
           <Button title="Kart yükle" onPress={() => navigation.navigate('Topup')} />
+          <Button title="Fatura öde" onPress={() => navigation.navigate('Bills')} />
           <Button title="İşlem geçmişi" onPress={() => navigation.navigate('Transactions')} />
           <Button title="Bildirimler" onPress={() => navigation.navigate('Notifications')} />
           <Button title="Çıkış yap" kind="secondary" onPress={logout} />

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api, dt, newIdempotencyKey, tl, toMinor } from '../api';
 import { useAuth } from '../auth';
+import { MethodPicker, QrPayment, type MethodOption } from '../components/payment';
 import { ErrorBox, Loading, Msg, StatusBadge, TestBadge, useAction, useLoad } from '../components/ui';
 
 // ---------------- Aboneliklerim ----------------
@@ -215,6 +216,7 @@ export function TransactionDetail({ kind }: { kind: 'yukleme' | 'fatura' }) {
             {t.utilityRef && (<><dt>Su idaresi ref.</dt><dd>{t.utilityRef}</dd></>)}
           </dl>
           {t.errorMessage && <div className="alert err">{t.errorMessage}</div>}
+          {kind === 'fatura' && t.qr && <QrPayment txId={t.id} payload={t.qr.payload} expiresAt={t.qr.expiresAt} isTest={t.isTest} onSettled={tx.reload} />}
           <div className="row" style={{ marginTop: 12 }}>
             {t.receiptId && <Link className="btn" to={`/makbuzlar/${t.receiptId}`}>Makbuzu görüntüle</Link>}
             <button className="secondary" onClick={() => tx.reload()}>Durumu yenile</button>
@@ -233,10 +235,22 @@ export function Bills() {
   const [inq, setInq] = useState<any>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [quote, setQuote] = useState<any>(null);
+  const [method, setMethod] = useState<MethodOption['method']>('HOSTED_CARD');
+  const [qr, setQr] = useState<{ txId: string; payload: string; expiresAt: string; isTest: boolean } | null>(null);
+  const methods = useLoad<MethodOption[]>(subId ? `/api/payment-methods?kind=BILL_PAYMENT&subscriptionId=${subId}` : null, [subId]);
+  useEffect(() => {
+    const opts = methods.data ?? [];
+    if (opts.length && opts.find((m) => m.method === method)?.status !== 'AVAILABLE') {
+      const first = opts.find((m) => m.status === 'AVAILABLE');
+      if (first) setMethod(first.method);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [methods.data]);
   const a = useAction();
   async function inquire(e: FormEvent) {
     e.preventDefault();
     setQuote(null);
+    setQr(null);
     const r = await a.run(() => api('/api/bill-payments/inquiries', { body: { subscriptionId: subId }, idempotencyKey: newIdempotencyKey() }));
     if (r) { setInq(r); setSelected(r.bills.map((b: any) => b.billId)); }
   }
@@ -245,8 +259,10 @@ export function Bills() {
     if (r) setQuote(r);
   }
   async function pay() {
-    const r = await a.run(() => api(`/api/bill-payments/${inq.id}/pay`, { body: { billIds: selected } }));
-    if (r?.checkoutUrl) location.assign(r.checkoutUrl);
+    const r = await a.run(() => api(`/api/bill-payments/${inq.id}/pay`, { body: { billIds: selected, paymentMethod: method } }));
+    if (!r) return;
+    if (r.method === 'QR' && r.qr) setQr({ txId: r.transaction.id, payload: r.qr.payload, expiresAt: r.qr.expiresAt, isTest: r.transaction.isTest });
+    else if (r.checkoutUrl) location.assign(r.checkoutUrl);
   }
   return (
     <>
@@ -293,7 +309,16 @@ export function Bills() {
                   </dl>
                   <p className="muted">{quote.feeDescription}</p>
                   <p className="muted">Fatura, su idaresi tahsilatı teyit ettikten sonra "ödendi" olarak gösterilir.</p>
-                  <button disabled={a.busy} onClick={pay}>Ödemeye geç</button>
+                  {qr ? (
+                    <QrPayment {...qr} />
+                  ) : (
+                    <>
+                      {methods.data && <MethodPicker options={methods.data} value={method} onChange={setMethod} />}
+                      <button disabled={a.busy || methods.data?.find((m) => m.method === method)?.status !== 'AVAILABLE'} onClick={pay}>
+                        {method === 'QR' ? 'Karekodu oluştur' : 'Ödemeye geç'}
+                      </button>
+                    </>
+                  )}
                 </>
               )}
             </>

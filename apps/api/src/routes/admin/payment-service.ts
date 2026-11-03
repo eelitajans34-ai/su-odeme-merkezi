@@ -40,6 +40,7 @@ export async function paymentServiceRoutes(app: FastifyInstance, { deps, guards 
       dailyUserLimitMinor: c.daily_user_limit_minor,
       allowedIps: c.allowed_ips,
       supportsRefund: c.supports_refund,
+      enabledPaymentMethods: c.enabled_payment_methods,
       lastConnectionTestAt: c.last_connection_test_at,
       lastConnectionTestOk: c.last_connection_test_ok,
       lastConnectionError: c.last_connection_error,
@@ -83,7 +84,7 @@ export async function paymentServiceRoutes(app: FastifyInstance, { deps, guards 
     const { rows } = await db.query('SELECT p.*, (s.active_provider_id = p.id) AS is_active_provider FROM payment_providers p CROSS JOIN payment_service_state s ORDER BY p.created_at');
     const out = [];
     for (const p of rows) {
-      out.push({ id: p.id, code: p.code, displayName: p.display_name, adapterCode: p.adapter_code, isActive: p.is_active_provider, test: await configView(p.id, 'TEST'), live: await configView(p.id, 'LIVE') });
+      out.push({ id: p.id, code: p.code, displayName: p.display_name, adapterCode: p.adapter_code, supportedMethods: deps.registry.getPayment(p.adapter_code).supportedMethods, isActive: p.is_active_provider, test: await configView(p.id, 'TEST'), live: await configView(p.id, 'LIVE') });
     }
     return { providers: out, availableAdapters: deps.registry.availablePaymentAdapters() };
   });
@@ -136,6 +137,22 @@ export async function paymentServiceRoutes(app: FastifyInstance, { deps, guards 
       [id, environment, body.apiBaseUrl, body.merchantId, webhookUrl, body.webhookToleranceSeconds, body.currency, body.minAmountMinor, body.maxAmountMinor, body.dailyUserLimitMinor, body.allowedIps, body.supportsRefund, body.certificateExpiresAt ?? null, req.auth!.userId],
     );
     await audit(db, { actorUserId: req.auth!.userId, actorType: 'ADMIN', action: 'payment_config.update', targetType: 'payment_provider', targetId: id, ip: req.ip, userAgent: req.headers['user-agent'], details: { environment, ...body } });
+    return configView(id, environment);
+  });
+
+  // Ödeme yöntemleri (kart / QR / NFC): yalnızca sağlayıcı adaptörünün desteklediği yöntemler açılabilir
+  app.put(`${P}/providers/:id/config/:env/payment-methods`, manage, async (req) => {
+    const { id, env: environment } = parse(z.object({ id: z.uuid(), env }), req.params);
+    const { methods } = parse(z.object({ methods: z.array(z.enum(['HOSTED_CARD', 'QR', 'NFC'])).min(1).max(3) }).strict(), req.body);
+    const provider = (await db.query('SELECT adapter_code FROM payment_providers WHERE id = $1', [id])).rows[0];
+    if (!provider) throw notFound();
+    const adapter = deps.registry.getPayment(provider.adapter_code);
+    const unsupported = methods.filter((m) => !adapter.supportedMethods.includes(m));
+    if (unsupported.length) throw badRequest(`Bu sağlayıcının entegrasyonu şu yöntemleri desteklemiyor: ${unsupported.join(', ')} (Kurulum bekleniyor).`, 'METHOD_NOT_SUPPORTED');
+    const unique = [...new Set(methods)];
+    const r = await db.query('UPDATE payment_provider_configs SET enabled_payment_methods = $3, updated_by = $4, updated_at = now() WHERE provider_id = $1 AND environment = $2', [id, environment, unique, req.auth!.userId]);
+    if (!r.rowCount) throw badRequest('Önce bu ortamın yapılandırmasını kaydedin.');
+    await audit(db, { actorUserId: req.auth!.userId, actorType: 'ADMIN', action: 'payment_config.methods', targetType: 'payment_provider', targetId: id, ip: req.ip, userAgent: req.headers['user-agent'], details: { environment, methods: unique } });
     return configView(id, environment);
   });
 

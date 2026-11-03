@@ -30,7 +30,7 @@ await db.query(`INSERT INTO payment_provider_configs (provider_id, environment, 
 const rand = () => Buffer.from(crypto.getRandomValues(new Uint8Array(24))).toString('base64url');
 await deps.secrets.put(db, { ref: 'payment/test/sandbox-api-key', environment: 'TEST', value: `sim_${rand()}`, actorId: null });
 await deps.secrets.put(db, { ref: 'payment/test/sandbox-webhook-secret', environment: 'TEST', value: `whsec_sim_${rand()}`, actorId: null });
-await db.query(`UPDATE payment_provider_configs SET api_key_secret_ref = 'payment/test/sandbox-api-key', webhook_secret_ref = 'payment/test/sandbox-webhook-secret', last_connection_test_ok = true, last_connection_test_at = now() WHERE provider_id = $1 AND environment = 'TEST'`, [p.id]);
+await db.query(`UPDATE payment_provider_configs SET api_key_secret_ref = 'payment/test/sandbox-api-key', webhook_secret_ref = 'payment/test/sandbox-webhook-secret', enabled_payment_methods = ARRAY['HOSTED_CARD','QR','NFC'], last_connection_test_ok = true, last_connection_test_at = now() WHERE provider_id = $1 AND environment = 'TEST'`, [p.id]);
 await db.query(`UPDATE payment_service_state SET active_provider_id = $1, mode = 'TEST' WHERE id`, [p.id]);
 const hasFee = (await db.query('SELECT 1 FROM fee_schedules LIMIT 1')).rows[0];
 if (!hasFee) {

@@ -17,17 +17,33 @@ export interface ProviderContext {
   callbackBaseUrl: string;
 }
 
+/**
+ * Ödeme yöntemleri:
+ *  - HOSTED_CARD: sağlayıcının güvenli ödeme sayfası (kart bilgisi platforma gelmez)
+ *  - QR: sağlayıcının ürettiği karekod; kullanıcı banka/cüzdan uygulamasıyla okutur
+ *  - NFC: temassız kart okuma; yalnızca mobil uygulamada ve sağlayıcının SDK'sı ile
+ * Sonuç her yöntemde aynı yoldan (imzalı webhook + durum sorgusu) doğrulanır.
+ */
+export type PaymentMethod = 'HOSTED_CARD' | 'QR' | 'NFC';
+export const PAYMENT_METHODS: readonly PaymentMethod[] = ['HOSTED_CARD', 'QR', 'NFC'];
+
 export interface CreatePaymentInput {
   orderRef: string;               // payment_transactions.public_ref
   amountMinor: number;
   currency: string;
   description: string;
   returnUrl: string;
+  method: PaymentMethod;
 }
 
 export interface CreatePaymentResult {
   providerPaymentRef: string;
-  checkoutUrl: string;
+  /** HOSTED_CARD: yönlendirilecek ödeme sayfası */
+  checkoutUrl: string | null;
+  /** QR: karekod içeriği ve geçerlilik süresi */
+  qr?: { payload: string; expiresAt: Date } | null;
+  /** NFC: mobil SDK'nın kullanacağı oturum belirteci (gizli anahtar değildir) */
+  nfc?: { sessionToken: string; sdk: string } | null;
 }
 
 export interface VerifiedWebhookEvent {
@@ -62,6 +78,8 @@ export interface PaymentProviderAdapter {
   readonly supportsRefund: boolean;
   readonly supportsStatusQuery: boolean;
   readonly supportsTransactionList: boolean;
+  /** Adaptörün resmî dokümana göre uyguladığı ödeme yöntemleri */
+  readonly supportedMethods: readonly PaymentMethod[];
 
   testConnection(ctx: ProviderContext): Promise<{ ok: boolean; code: string; message: string }>;
   createPayment(ctx: ProviderContext, input: CreatePaymentInput): Promise<CreatePaymentResult>;

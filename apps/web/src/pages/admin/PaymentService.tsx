@@ -89,6 +89,7 @@ function Providers() {
                       <dt>Para birimi</dt><dd>{c.currency}</dd>
                       <dt>İşlem limitleri</dt><dd>{tl(c.minAmountMinor)} – {tl(c.maxAmountMinor)}; günlük {tl(c.dailyUserLimitMinor)}</dd>
                       <dt>İade API</dt><dd>{c.supportsRefund ? 'Destekleniyor' : 'Yok'}</dd>
+                      <dt>Ödeme yöntemleri</dt><dd><MethodToggles providerId={x.id} env={env} supported={x.supportedMethods ?? []} enabled={c.enabledPaymentMethods ?? []} onSaved={p.reload} /></dd>
                       <dt>Bağlantı testi</dt><dd>{c.lastConnectionTestOk == null ? 'Yapılmadı' : c.lastConnectionTestOk ? `Başarılı (${dt(c.lastConnectionTestAt)})` : `Başarısız: ${c.lastConnectionError}`}</dd>
                       <dt>Son değişiklik</dt><dd>{dt(c.updatedAt)} {c.updatedBy && `· ${c.updatedBy}`}</dd>
                     </dl>
@@ -355,5 +356,26 @@ function Connection() {
         </>
       )}
     </Loading>
+  );
+}
+
+const METHOD_NAMES: Record<string, string> = { HOSTED_CARD: 'Kart (güvenli ödeme sayfası)', QR: 'QR ile ödeme', NFC: 'Temassız (NFC) — yalnızca mobil' };
+
+function MethodToggles({ providerId, env, supported, enabled, onSaved }: { providerId: string; env: string; supported: string[]; enabled: string[]; onSaved: () => void }) {
+  const [sel, setSel] = useState<string[]>(enabled);
+  const a = useAction();
+  const changed = sel.slice().sort().join() !== enabled.slice().sort().join();
+  return (
+    <div>
+      {Object.entries(METHOD_NAMES).map(([m, name]) => (
+        <label key={m} className="row" style={{ fontWeight: 400 }}>
+          <input type="checkbox" style={{ width: 'auto' }} disabled={!supported.includes(m)} checked={sel.includes(m)}
+            onChange={(e) => setSel(e.target.checked ? [...sel, m] : sel.filter((x) => x !== m))} />
+          {name}{!supported.includes(m) && <span className="muted"> — Kurulum bekleniyor (sağlayıcı entegrasyonu desteklemiyor)</span>}
+        </label>
+      ))}
+      <AdminError error={a.error} onVerified={onSaved} />
+      {changed && <button className="secondary" disabled={a.busy || sel.length === 0} onClick={async () => { if (await a.run(() => api(`/api/admin/payment-service/providers/${providerId}/config/${env}/payment-methods`, { method: 'PUT', body: { methods: sel } }))) onSaved(); }}>Yöntemleri kaydet</button>}
+    </div>
   );
 }

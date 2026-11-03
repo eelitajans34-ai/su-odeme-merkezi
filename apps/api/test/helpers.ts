@@ -73,6 +73,7 @@ export async function resetData(t: TestCtx) {
   }
   t.deps.registry.sandboxPayment.payments.clear();
   t.deps.registry.sandboxPayment.refunds.clear();
+  t.deps.registry.sandboxPayment.nfcSessions.clear();
   t.deps.registry.sandboxUtility.submissions.clear();
 }
 
